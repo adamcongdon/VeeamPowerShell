@@ -45,11 +45,11 @@ $job = $jobs[$jobIndex - 1]
 Write-Host "You selected job: $($job.Name)"
 
 # 2. Get all restore points for the selected job
-$backup = Get-VBRUnstructuredBackup -Name $job.Name
+$backup = Get-VBRUnstructuredBackup | Where-Object {$_.jobid -eq $job.Id }
 $restorepoints = Get-VBRUnstructuredBackupRestorePoint -Backup $backup
 
 # 3. List all restore points by date
-$restorepoints | Sort-Object -Property CreationTime -Descending | ForEach-Object -Begin { $index = 1 } -Process { $_ | Add-Member -NotePropertyName Index -NotePropertyValue $index -PassThru; $index++ } | Select-Object -Property Index, CreationTime | Format-Table -AutoSize
+$restorepoints | ForEach-Object -Begin { $index = 1 } -Process { $_ | Add-Member -NotePropertyName Index -NotePropertyValue $index -PassThru; $index++ } | Select-Object -Property Index, CreationTime | Format-Table -AutoSize
 
 # 4. Ask user to select restore point by number
 $validInput = $false
@@ -78,6 +78,7 @@ Write-Host "Starting FLR session..."
 $flr = Start-VBRUnstructuredBackupFLRSession -RestorePoint $selectedRestorePoint
 
 # Get all files in backup:
+Write-Host "Getting all files in backup...This may take a while" -ForegroundColor Yellow
 $files = Get-VBRUnstructuredBackupFLRItem -Session $flr -Recurse
 if($files.Count -eq 0){
     Write-Host "No files found in backup"
@@ -91,11 +92,13 @@ if($files.Count -gt 1000){
 Write-Host "Exporting files to CSV..."
 
 $name = $job.Name
-$date = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
-$fileName = "C:\temp\files_$($name)_$date.csv"
-if($files.Count -gt 10000){
-    for ($i=0; $i -lt $files.Count; $i+=10000){
-        $files[$i..($i+10000)] | Export-Csv -Path $fileName -NoTypeInformation
+$fileName = "C:\temp\files_$($name)_$($date).csv"
+$fCount = 100000
+if($files.Count -gt $fCount){
+    for ($i=0; $i -lt $files.Count; $i+=$fCount){
+        $date = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
+        $fileName = "C:\temp\files_$($name)_$($date)_$($i).csv"
+        $files[$i..($i+$fCount)] | Export-Csv -Path $fileName -NoTypeInformation
     }
 }
 else{
