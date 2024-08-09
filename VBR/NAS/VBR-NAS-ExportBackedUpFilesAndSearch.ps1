@@ -93,6 +93,9 @@ function Set-DestinationDirectory {
 }
 #End Functions
 ##############################################################################################
+#print start time
+Write-Host "Script started at: $(Get-Date)" -ForegroundColor Green
+
 # 1. Get all unstructured jobs into $jobs variable
 $jobs = Get-VBRJob | Where-Object { $_.JobType -eq "NasBackup" }
 
@@ -196,8 +199,6 @@ $fCount = Select-ItemsPerCSV
 $destination = Set-DestinationDirectory
 
 
-#Get Latest Restore Point:
-#$restorepoint = Get-VBRUnstructuredBackupRestorePoint | Sort-Object -Property CreationTime | Select-Object -Last 1
 
 #Start the FLR Session:
 Write-Host "Starting FLR session..."
@@ -220,40 +221,6 @@ $timer.Stop()
 Write-Host "Time taken to get files: $($timer.Elapsed.TotalMinutes) minutes" 
 # echo file count
 Write-Host "Number of files found: $($filesResult.Count)" -ForegroundColor Green
-# get the name of the folder:
-#$name = Get-VBRUnstructuredBackupFLRItem -Session $flr -Name $baseName.Name
-
-# Get the base files and folders from the root and loop through folders to get all files
-#$folder = Get-VBRUnstructuredBackupFLRItem -Session $flr -folder $name
-
-
-
-
-#foreach item of type Folder in $folder, get all files in the folder
-# $filesResult = @()
-# foreach ($item in $folder) {
-#     if ($item.Type -eq "File") {
-#         $filesResult += $item
-#     }
-#     elseif ($item.Type -eq "Folder") {
-#         $res = Get-FLRContent $item
-#         foreach ($item in $res) {
-#             if ($item.Type -eq "File") {
-#                 $filesResult += $item
-#             }
-#             elseif ($item.Type -eq "Folder") {
-#                 $filesResult += Get-FLRContent $item
-#             }
-#         }
-
-#     }
-#     Write-Host "Number of files found: $($filesResult.Count)"
-
-# }
-
-
-#$files = Get-VBRUnstructuredBackupFLRItem -Session $flr -Recurse
-
 
 
 
@@ -287,6 +254,9 @@ else {
 
 Write-Host "Files exported to $fileName" -ForegroundColor Green
 
+
+#print end time
+Write-Host "Script ended at: $(Get-Date)" -ForegroundColor Green
 # Search for files
 
 while ($true) {
