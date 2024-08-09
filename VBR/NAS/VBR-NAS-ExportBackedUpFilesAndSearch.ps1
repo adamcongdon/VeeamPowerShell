@@ -121,6 +121,51 @@ Write-Host "You selected job: $($job.Name)"
 $backup = Get-VBRUnstructuredBackup | Where-Object { $_.jobid -eq $job.Id }
 $restorepoints = Get-VBRUnstructuredBackupRestorePoint -Backup $backup
 
+#from the $restorepoints, get all objects but only if they have a unique ServerName. I need to preserve all other details about the restore point
+# Extract unique server names from $restorepoints
+$uniqueServers = $restorepoints | Select-Object -ExpandProperty ServerName -Unique
+
+if($uniqueServers.Count -gt 1){
+# Create a list of unique server names with an index
+$indexedServers = @()
+$indexedServers = $uniqueServers | ForEach-Object -Begin { $index = 1 } -Process {
+    [PSCustomObject]@{
+        Index      = $index
+        ServerName = $_
+    }
+    $index++
+}
+
+# Display the indexed list to the user
+$indexedServers | Format-Table -Property Index, ServerName
+Write-Host "Select the server to restore files from"
+$validInput = $false
+while (-not $validInput) {
+    $serverInput = Read-Host "Select Server by Index"
+    if ($serverInput -match '^\d+$') {
+        $serverIndex = [int]$serverInput -1
+        if ($serverIndex -ge 0){
+            if($serverIndex -lt $indexedServers.Count){
+                $validInput = $true
+            }
+        } 
+    }
+    else {
+        Write-Host "Invalid input. Please enter a valid index."
+    }
+}
+
+#after selecting the server, I need to get all $restorepoints that have the selected server name
+$selectedServer = $indexedServers[$serverIndex].ServerName
+$restorepoints = $restorepoints | Where-Object { $_.ServerName -eq $selectedServer }
+
+Write-Host "You selected server: $selectedServer"
+}
+
+
+
+
+
 # 3. List all restore points by date
 #sort $restorepoints by creation time 
 $restorepoints = $restorepoints | Sort-Object -Property CreationTime 
