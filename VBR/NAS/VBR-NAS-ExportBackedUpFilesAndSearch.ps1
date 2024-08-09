@@ -19,23 +19,81 @@ The script may also allow searching for specific file names... TBD
 
 #>
 
+##############################################################################################
+#Functions
+
 # write a function to close the FLR session and print a message
-function Close-FLRSession($flr){
+function Close-FLRSession($flr) {
     Write-Host "Closing FLR session..." -ForegroundColor Yellow
     Stop-VBRUnstructuredBackupFLRSession -Session $flr
 }
+function Select-ItemsPerCSV {
+    $validInput = $false
+    while (-not $validInput) {
+        $splitOption = Read-Host "Select the number of items per CSV file (10K, 100K, 500K)(default: 100K)"
+        switch ($splitOption) {
+            "10K" { $fCount = 10000; $validInput = $true }
+            "100K" { $fCount = 100000; $validInput = $true }
+            "500K" { $fCount = 500000; $validInput = $true }
+            default { $fCount = 100000; $validInput = $true }
+        }
+    }
+    return $fCount
+}
+# function to get content of folders
+function Get-FLRContent($folder) {
+    $files = @()
+    foreach ($item in $folder) {
+        $res = Get-VBRUnstructuredBackupFLRItem -Session $flr -folder $item
+        # foreach item in $res, if type is file add to $files
+        foreach ($r in $res) {
+            if ($r.Type -eq "File") {
+                $files += $r
+            }
+            elseif ($r.Type -eq "Folder") {
 
+                $files += Get-FLRContent $r   
+            }        
+        }
+    }
+    
+
+    return $files
+}
+function Set-DestinationDirectory {
+    param (
+        [string]$defaultDestination = "C:\temp\NAS-Files"
+    )
+
+    $destination = Read-Host "Enter the destination directory for the files (default: $defaultDestination)"
+    if ([string]::IsNullOrWhiteSpace($destination)) {
+        $destination = $defaultDestination
+    }
+
+    if (-not (Test-Path $destination)) {
+        New-Item -ItemType Directory -Path $destination | Out-Null
+    }
+
+    return $destination
+}
+#End Functions
+##############################################################################################
 # 1. Get all unstructured jobs into $jobs variable
-$jobs = Get-VBRJob | Where-Object {$_.JobType -eq "NasBackup"}
+$jobs = Get-VBRJob | Where-Object { $_.JobType -eq "NasBackup" }
 
 # List all jobs with option for user to select which job to choose as $job variable
-$jobs | ForEach-Object -Begin { $index = 1 } -Process { $_ | Add-Member -NotePropertyName Index -NotePropertyValue $index -PassThru; $index++ } | Select-Object -Property Index, Name, Id | Sort-Object -Property Index | Format-Table -AutoSize
+$jobs | ForEach-Object -Begin { $index = 1 } -Process { $_ | Add-Member -NotePropertyName Index -NotePropertyValue $index -PassThru; $index++ } | Select-Object -Property Index, Name | Sort-Object -Property Index | Format-Table -AutoSize
 $validInput = $false
 while (-not $validInput) {
-    $jobIndex = Read-Host "Select Job by Index"
-    if ($jobIndex -match '^\d+$' -and $jobIndex -ge 1 -and $jobIndex -le $jobs.Count) {
-        $validInput = $true
-    } else {
+    $jobInput = Read-Host "Select Job by Index"
+
+    if ($jobInput -match '^\d+$') {
+        $jobIndex = [int]$jobInput
+        if ($jobIndex -ge 1 -and $jobIndex -le $jobs.Count) {
+            $validInput = $true
+        } 
+    }
+    else {
         Write-Host "Invalid input. Please enter a valid index."
     }
 }
@@ -45,10 +103,12 @@ $job = $jobs[$jobIndex - 1]
 Write-Host "You selected job: $($job.Name)"
 
 # 2. Get all restore points for the selected job
-$backup = Get-VBRUnstructuredBackup | Where-Object {$_.jobid -eq $job.Id }
+$backup = Get-VBRUnstructuredBackup | Where-Object { $_.jobid -eq $job.Id }
 $restorepoints = Get-VBRUnstructuredBackupRestorePoint -Backup $backup
 
 # 3. List all restore points by date
+#sort $restorepoints by creation time 
+$restorepoints = $restorepoints | Sort-Object -Property CreationTime 
 $restorepoints | ForEach-Object -Begin { $index = 1 } -Process { $_ | Add-Member -NotePropertyName Index -NotePropertyValue $index -PassThru; $index++ } | Select-Object -Property Index, CreationTime | Format-Table -AutoSize
 
 # 4. Ask user to select restore point by number
@@ -57,7 +117,8 @@ while (-not $validInput) {
     $restorePointIndex = Read-Host "Select Restore Point by Index"
     if ($restorePointIndex -match '^\d+$' -and $restorePointIndex -ge 1 -and $restorePointIndex -le $restorepoints.Count) {
         $validInput = $true
-    } else {
+    }
+    else {
         Write-Host "Invalid input. Please enter a valid index."
     }
 }
@@ -68,6 +129,11 @@ $selectedRestorePoint = $restorepoints[$restorePointIndex - 1]
 # echo to the user which restore point they selected
 Write-Host "You selected restore point created on: $($selectedRestorePoint.CreationTime)"
 
+# Get the number of items per CSV file
+$fCount = Select-ItemsPerCSV
+
+# 6. Set the destination directory for the files
+$destination = Set-DestinationDirectory
 
 
 #Get Latest Restore Point:
@@ -77,57 +143,107 @@ Write-Host "You selected restore point created on: $($selectedRestorePoint.Creat
 Write-Host "Starting FLR session..."
 $flr = Start-VBRUnstructuredBackupFLRSession -RestorePoint $selectedRestorePoint
 
+
+
 # Get all files in backup:
 Write-Host "Getting all files in backup...This may take a while" -ForegroundColor Yellow
-$files = Get-VBRUnstructuredBackupFLRItem -Session $flr -Recurse
-if($files.Count -eq 0){
+
+
+# get base source from the backup:
+$baseName = Get-VBRUnstructuredBackupFLRItem -Session $flr
+
+$filesResult = Get-FLRContent $baseName
+# echo file count
+Write-Host "Number of files found: $($filesResult.Count)" -ForegroundColor Green
+# get the name of the folder:
+#$name = Get-VBRUnstructuredBackupFLRItem -Session $flr -Name $baseName.Name
+
+# Get the base files and folders from the root and loop through folders to get all files
+#$folder = Get-VBRUnstructuredBackupFLRItem -Session $flr -folder $name
+
+
+
+
+#foreach item of type Folder in $folder, get all files in the folder
+# $filesResult = @()
+# foreach ($item in $folder) {
+#     if ($item.Type -eq "File") {
+#         $filesResult += $item
+#     }
+#     elseif ($item.Type -eq "Folder") {
+#         $res = Get-FLRContent $item
+#         foreach ($item in $res) {
+#             if ($item.Type -eq "File") {
+#                 $filesResult += $item
+#             }
+#             elseif ($item.Type -eq "Folder") {
+#                 $filesResult += Get-FLRContent $item
+#             }
+#         }
+
+#     }
+#     Write-Host "Number of files found: $($filesResult.Count)"
+
+# }
+
+
+#$files = Get-VBRUnstructuredBackupFLRItem -Session $flr -Recurse
+
+
+
+
+if ($filesResult.Count -eq 0) {
     Write-Host "No files found in backup"
     Close-FLRSession $flr
     Exit
 }
-if($files.Count -gt 1000){
-    Write-Host "There are $($files.Count) files in the backup. This may take a while to process."
-}
-# Export files to CSV
-Write-Host "Exporting files to CSV..."
 
-$name = $job.Name
-$fileName = "C:\temp\files_$($name)_$($date).csv"
-$fCount = 100000
-if($files.Count -gt $fCount){
-    for ($i=0; $i -lt $files.Count; $i+=$fCount){
-        $date = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
-        $fileName = "C:\temp\files_$($name)_$($date)_$($i).csv"
-        $files[$i..($i+$fCount)] | Export-Csv -Path $fileName -NoTypeInformation
+
+
+
+
+
+# Export files to destination directory
+Write-Host "Exporting files to $destination..."
+$n = $job.Name
+$files = $filesResult 
+$date = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
+if ($files.Count -gt $fCount) {
+    for ($i = 0; $i -lt $files.Count; $i += $fCount) {
+        
+        $fileName = "$destination\files_$($n)_$($date)_$($i).csv"
+        $files[$i..($i + $fCount)] | Export-Csv -Path $fileName -NoTypeInformation
     }
 }
-else{
+else {
+    $fileName = "$destination\files_$($n)_$($date).csv"
     $files | Export-Csv -Path $fileName -NoTypeInformation
 }
+
 Write-Host "Files exported to $fileName" -ForegroundColor Green
 
 # Search for files
 
-while($true){
+while ($true) {
     # Prompt for search files or exit and close FLR session
     $search = Read-Host "Do you want to search for a file? (Y/N)"
-    if($search -eq "N"){
+    if ($search -eq "N") {
         Write-Host "Closing FLR session..." -ForegroundColor Yellow
         Stop-VBRUnstructuredBackupFLRSession -Session $flr
 
         break
     }
-    if($search -eq "Y"){
+    if ($search -eq "Y") {
         $searchString = Read-Host "Enter search string"
-        $searchResults = $files | Where-Object {$_.Name -like "*$searchString*"}
+        $searchResults = $files | Where-Object { $_.Name -like "*$searchString*" }
         
         $date2 = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
 
         Write-Host "Number of search results found: $($searchResults.Count)" -foregroundcolor green
-        $searchResults | Export-Csv -Path "C:\temp\searchResults_$($name)_$($date2).csv" -NoTypeInformation
-        Write-Host "Search results saved to C:\temp\searchResults_$($name).$($date2).csv"
+        $searchResults | Export-Csv -Path "$destination\searchResults_$($n)_$($date2).csv" -NoTypeInformation
+        Write-Host "Search results saved to $destination\searchResults_$($n).$($date2).csv"
     }
-    else{
+    else {
         Write-Host "Invalid input. Please enter Y or N"
     }
 
