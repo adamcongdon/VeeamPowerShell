@@ -52,10 +52,10 @@ function Get-FLRContent($folder) {
             }
             elseif ($r.Type -eq "Folder") {
                 $f = Get-FLRContent $r
-                if($f.count -gt 1){
+                if ($f.count -gt 1) {
                     $files.AddRange($f)
                 }
-                elseif($f.count -eq 1){
+                elseif ($f.count -eq 1) {
                     $files.add($f)
 
                 }
@@ -70,7 +70,7 @@ function Get-FLRContent($folder) {
     #     return @($files)
     # }
     # else{
-        return $files
+    return $files
 
     # }
 
@@ -128,41 +128,41 @@ $restorepoints = Get-VBRUnstructuredBackupRestorePoint -Backup $backup
 # Extract unique server names from $restorepoints
 $uniqueServers = $restorepoints | Select-Object -ExpandProperty ServerName -Unique
 
-if($uniqueServers.Count -gt 1){
-# Create a list of unique server names with an index
-$indexedServers = @()
-$indexedServers = $uniqueServers | ForEach-Object -Begin { $index = 1 } -Process {
-    [PSCustomObject]@{
-        Index      = $index
-        ServerName = $_
+if ($uniqueServers.Count -gt 1) {
+    # Create a list of unique server names with an index
+    $indexedServers = @()
+    $indexedServers = $uniqueServers | ForEach-Object -Begin { $index = 1 } -Process {
+        [PSCustomObject]@{
+            Index      = $index
+            ServerName = $_
+        }
+        $index++
     }
-    $index++
-}
 
-# Display the indexed list to the user
-$indexedServers | Format-Table -Property Index, ServerName
-Write-Host "Select the server to restore files from"
-$validInput = $false
-while (-not $validInput) {
-    $serverInput = Read-Host "Select Server by Index"
-    if ($serverInput -match '^\d+$') {
-        $serverIndex = [int]$serverInput -1
-        if ($serverIndex -ge 0){
-            if($serverIndex -lt $indexedServers.Count){
-                $validInput = $true
-            }
-        } 
+    # Display the indexed list to the user
+    $indexedServers | Format-Table -Property Index, ServerName
+    Write-Host "Select the server to restore files from"
+    $validInput = $false
+    while (-not $validInput) {
+        $serverInput = Read-Host "Select Server by Index"
+        if ($serverInput -match '^\d+$') {
+            $serverIndex = [int]$serverInput - 1
+            if ($serverIndex -ge 0) {
+                if ($serverIndex -lt $indexedServers.Count) {
+                    $validInput = $true
+                }
+            } 
+        }
+        else {
+            Write-Host "Invalid input. Please enter a valid index."
+        }
     }
-    else {
-        Write-Host "Invalid input. Please enter a valid index."
-    }
-}
 
-#after selecting the server, I need to get all $restorepoints that have the selected server name
-$selectedServer = $indexedServers[$serverIndex].ServerName
-$restorepoints = $restorepoints | Where-Object { $_.ServerName -eq $selectedServer }
+    #after selecting the server, I need to get all $restorepoints that have the selected server name
+    $selectedServer = $indexedServers[$serverIndex].ServerName
+    $restorepoints = $restorepoints | Where-Object { $_.ServerName -eq $selectedServer }
 
-Write-Host "You selected server: $selectedServer"
+    Write-Host "You selected server: $selectedServer"
 }
 
 
