@@ -208,6 +208,8 @@ $flr = Start-VBRUnstructuredBackupFLRSession -RestorePoint $selectedRestorePoint
 
 # Get all files in backup:
 Write-Host "Getting all files in backup...This may take a while" -ForegroundColor Yellow
+# echo start time
+Write-Host "Files Counting started at: $(Get-Date)" -ForegroundColor Green
 
 # start timer
 $timer = [System.Diagnostics.Stopwatch]::StartNew()
