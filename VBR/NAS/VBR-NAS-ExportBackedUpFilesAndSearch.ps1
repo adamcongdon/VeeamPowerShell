@@ -42,23 +42,38 @@ function Select-ItemsPerCSV {
 }
 # function to get content of folders
 function Get-FLRContent($folder) {
-    $files = @()
+    $files = New-Object System.Collections.Generic.List[Object]
     foreach ($item in $folder) {
         $res = Get-VBRUnstructuredBackupFLRItem -Session $flr -folder $item
         # foreach item in $res, if type is file add to $files
         foreach ($r in $res) {
             if ($r.Type -eq "File") {
-                $files += $r
+                $files.add($r)# += $r
             }
             elseif ($r.Type -eq "Folder") {
+                $f = Get-FLRContent $r
+                if($f.count -gt 1){
+                    $files.AddRange($f)
+                }
+                elseif($f.count -eq 1){
+                    $files.add($f)
 
-                $files += Get-FLRContent $r   
+                }
+                #$files.AddRange((Get-FLRContent $r))
             }        
         }
     }
-    
+    # if($files.count -eq 0){
+    #     return $null    
+    # }
+    # if($files.Count -eq 1){
+    #     return @($files)
+    # }
+    # else{
+        return $files
 
-    return $files
+    # }
+
 }
 function Set-DestinationDirectory {
     param (
@@ -148,11 +163,16 @@ $flr = Start-VBRUnstructuredBackupFLRSession -RestorePoint $selectedRestorePoint
 # Get all files in backup:
 Write-Host "Getting all files in backup...This may take a while" -ForegroundColor Yellow
 
-
+# start timer
+$timer = [System.Diagnostics.Stopwatch]::StartNew()
 # get base source from the backup:
 $baseName = Get-VBRUnstructuredBackupFLRItem -Session $flr
 
 $filesResult = Get-FLRContent $baseName
+
+#stop timer and print time taken
+$timer.Stop()
+Write-Host "Time taken to get files: $($timer.Elapsed.TotalMinutes) minutes" 
 # echo file count
 Write-Host "Number of files found: $($filesResult.Count)" -ForegroundColor Green
 # get the name of the folder:
