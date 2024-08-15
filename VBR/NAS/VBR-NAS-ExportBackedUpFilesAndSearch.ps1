@@ -23,6 +23,12 @@ The script may also allow searching for specific file names... TBD
 #Functions
 
 # write a function to close the FLR session and print a message
+
+# input parameter to define debug mode
+param (
+    [switch]$debug
+)
+
 function Close-FLRSession($flr) {
     Write-Host "Closing FLR session..." -ForegroundColor Yellow
     Stop-VBRUnstructuredBackupFLRSession -Session $flr
@@ -62,8 +68,11 @@ function Write-Log {
         [Parameter(Mandatory = $false)]
         [string]$logFile = $destination + "\FLR-FileSearch-Log.txt"
     )
-
-    Add-Content -Path $logFile -Value "$(Get-Date) - $message"
+    $line = "$(Get-Date) - $message"
+    Add-Content -Path $logFile -Value $line
+    if($debug) {
+        Write-Host $line
+    }
 }
 
 # function to get content of folders
@@ -83,6 +92,7 @@ function Get-FLRContent($folder) {
                 # echo found file count
                 #Write-Message("New files found: " + $fi.Count)
                 $message = "New files found: " + $fi.Count
+
                 Write-Log -message $message
                 $files.Add($fi)
             }
@@ -90,6 +100,7 @@ function Get-FLRContent($folder) {
                 # echo files count
                 #Write-Message("New files found: " + $fi.Count)
                 $message = "New files found: " + $fi.Count
+
                 Write-Log -message $message
 
                 $files.AddRange($fi)
