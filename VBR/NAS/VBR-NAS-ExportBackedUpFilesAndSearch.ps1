@@ -41,7 +41,7 @@ function Select-ItemsPerCSV {
     return $fCount
 }
 # function to log message to console with timestamp
-function Log-Message {
+function Write-Message {
     param (
         [Parameter(Mandatory=$true)]
         [string]$message,
@@ -52,6 +52,18 @@ function Log-Message {
     )
 
     Write-Host "$(Get-Date) - $message" -ForegroundColor $color
+}
+# function to log message to log file
+function Write-Log {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$message,
+
+        [Parameter(Mandatory=$false)]
+        [string]$logFile = $destination +  "\FLR-FileSearch-Log.txt"
+    )
+
+    Add-Content -Path $logFile -Value "$(Get-Date) - $message"
 }
 
 # function to get content of folders
@@ -64,12 +76,17 @@ function Get-FLRContent($folder) {
         $fi = $res | Where-Object { $_.Type -eq "File" }
         if($fi.Count -eq 1) {
             # echo found file count
-            Log-Message("New files found: " + $fi.Count)
+            #Write-Message("New files found: " + $fi.Count)
+            $message = "New files found: " + $fi.Count
+            Write-Log -message $message
             $files.Add($fi)
         }
         elseif($fi.Count -gt 1) {
             # echo files count
-            Log-Message("New files found: " + $fi.Count)
+            #Write-Message("New files found: " + $fi.Count)
+            $message = "New files found: " + $fi.Count
+            Write-Log -message $message
+
         $files.AddRange($fi)
         }
         $global:TotalFileCount += $fi.Count
@@ -84,16 +101,21 @@ function Get-FLRContent($folder) {
         if ($fo.Count -gt 0) {
             # echo folders count
             $message = "Folders To Sort: "+ $fo.Count
-           Log-Message -message $message -color "Yellow"
+           #Write-Message -message $message -color "Yellow"
+           Write-Log -message $message
             $f = Get-FLRContent $fo
                 if ($f.count -gt 1) {
                     #echo files count
-                    Log-Message("New files found: "+ $f.Count)
+                    #Write-Message("New files found: "+ $f.Count)
+                    $message = "New files found: " + $f.Count
+                    Write-Log -message $message
                     $files.AddRange($f)
                 }
                 elseif ($f.count -eq 1) {
                     #echo files count
-                    Log-Message("New files found: " + $f.Count)
+                    #Write-Message("New files found: " + $f.Count)
+                    $message = "New files found: " + $f.Count
+                    Write-Log -message $message
                     $files.add($f)
 
                 }
@@ -128,41 +150,12 @@ function Get-FLRContent($folder) {
     }
     #$files = Export-FLRContent $files $destination $fCount
     $message = "Total Files Counted: " + $global:TotalFileCount
-    Log-Message -message $message -color "Green"
+    Write-Message -message $message -color "Green"
     return $files
 
     # }
 
 }
-# function Export-FLRContent($files, $destination, $fCount) {
-#     #check for files in $desintation and count the lines in the newest file
-#     $outputFiles = Get-ChildItem $destination | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    
-#     $n = $job.Name
-#     #if files exist, get the line count, if no files exist, create a new file
-#     if ($outputFiles.Count -gt 0) {
-#         $lines = (Get-Content $outputFiles.FullName).Count
-#         if ($lines -gt $fCount) {
-#             $fileName = Create-NewOutpuFile $destination $n
-#         }
-#         else {
-#             $fileName = $outputFiles.FullName
-#         }
-#     }
-#     else {
-#         $lines = 0
-#         $fileName = Create-NewOutpuFile $destination $n
-#     }
-#     #if the line count is greater than $fCount, create a new file
-
-#     $files | Export-Csv -Path $fileName -NoTypeInformation -Append
-
-#     # zero out the $files variable
-
-#     $files = @()
-#     return $files
-# }
-# write a function similar to Export-FLRContent but splits the files into chunks of $fCount
 function Export-FLRContent($files, $destination, $fCount) {
     $n = $job.Name
     $date = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
@@ -328,6 +321,8 @@ $timer = [System.Diagnostics.Stopwatch]::StartNew()
 # get base source from the backup:
 $baseName = Get-VBRUnstructuredBackupFLRItem -Session $flr
 
+$message = "Starting FLR Content Search. Check progress log in : " + $destination
+Write-Message -message $message -color "Yellow"
 $global:TotalFileCount = 0
 $filesResult = Get-FLRContent $baseName
 
