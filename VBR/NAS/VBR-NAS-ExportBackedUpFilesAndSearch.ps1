@@ -388,7 +388,7 @@ while ($true) {
         Write-Host "Search results saved to $destination\searchResults_$($n).$($date2).csv"
     }
     else {
-        Write-Host "Invalid input. Please enter Y or N"
+        Write-Host "Invalid input. Please enter Y or N" -ForegroundColor Red
     }
 
 }
