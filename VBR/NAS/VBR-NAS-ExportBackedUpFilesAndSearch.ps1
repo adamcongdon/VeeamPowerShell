@@ -105,6 +105,8 @@ function Get-FLRContent($folder) {
 
     #if global total equal to or greater than 1 million, export to csv and flush $files variable
     if ($global:TotalFileCount -ge 1000000 * $global:Exports) {
+        $global:FinalCount += $global:TotalFileCount
+        $global:TotalFileCount = 0
         $files = Export-FLRContent $files $destination $fCount
         $files = New-Object System.Collections.Generic.List[Object]
     }
@@ -137,7 +139,7 @@ function Get-FLRContent($folder) {
         
     
     #$files = Export-FLRContent $files $destination $fCount
-    $message = "Total Files Counted: " + $global:TotalFileCount
+    $message = "Total Files Counted: " + $global:FinalCount
     Write-Log -message $message
     return $files
 
@@ -312,6 +314,7 @@ $baseName = Get-VBRUnstructuredBackupFLRItem -Session $flr
 $message = "Starting FLR Content Search. Check progress log in : " + $destination
 Write-Message -message $message -color "Yellow"
 $global:TotalFileCount = 0
+$global:FinalCount = 0
 $global:Exports = 1
 $filesResult = Get-FLRContent $baseName
 
@@ -326,11 +329,11 @@ Write-Host "Time taken to get files: $($timer.Elapsed.TotalMinutes) minutes"
 #get file count from destination by counting lines in all files
 #$filesCount = Get-ChildItem $destination -Recurse | Measure-Object -Line | Select-Object -ExpandProperty Lines
 
-Write-Host "Number of files found: $($global:TotalFileCount)" -ForegroundColor Green
+Write-Host "Number of files found: $($global:FinalCount)" -ForegroundColor Green
 
 
 
-if ($global:TotalFileCount -eq 0) {
+if ($global:FinalCount -eq 0) {
     Write-Host "No files found in backup"
     Close-FLRSession $flr
     Exit
