@@ -98,12 +98,12 @@ function Get-FLRContent($folder) {
             if ($fi.Count -eq 1) {
                 # echo found file count
                 #Write-Message("New files found: " + $fi.Count)
-                Log-FilesFound($f.Count)
+                Log-FilesFound($fi.Count)
                 $files.Add($fi)
             }
             elseif ($fi.Count -gt 1) {
                 # echo files count
-                Log-FilesFound($f.Count)
+                Log-FilesFound($fi.Count)
 
                 $files.AddRange($fi)
             }
