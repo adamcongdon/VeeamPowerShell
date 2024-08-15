@@ -70,7 +70,7 @@ function Write-Log {
     )
     $line = "$(Get-Date) - $message"
     Add-Content -Path $logFile -Value $line
-    if($debug) {
+    if ($debug) {
         Write-Host $line
     }
 }
@@ -78,71 +78,64 @@ function Write-Log {
 # function to get content of folders
 function Get-FLRContent($folder) {
     $files = New-Object System.Collections.Generic.List[Object]
-    foreach ($item in $folder) {
-        if ($item.Type -eq "File") {
-            $message = "New files found: 1"
+
+
+    # $res = Get-VBRUnstructuredBackupFLRItem -Session $flr -folder $item
+    # foreach item in $res, if type is file add to $files
+
+    $fi = $folder | Where-Object { $_.Type -eq "File" }
+    if ($fi.Count -eq 1) {
+        # echo found file count
+        #Write-Message("New files found: " + $fi.Count)
+        $message = "New files found: " + $fi.Count
+
+        Write-Log -message $message
+        $files.Add($fi)
+    }
+    elseif ($fi.Count -gt 1) {
+        # echo files count
+        #Write-Message("New files found: " + $fi.Count)
+        $message = "New files found: " + $fi.Count
+
+        Write-Log -message $message
+
+        $files.AddRange($fi)
+    }
+    $global:TotalFileCount += $fi.Count
+
+    #if global total equal to or greater than 1 million, export to csv and flush $files variable
+    if ($global:TotalFileCount -ge 1000000 * $global:Exports) {
+        $files = Export-FLRContent $files $destination $fCount
+        $files = New-Object System.Collections.Generic.List[Object]
+    }
+
+    $fo = $folder | Where-Object { $_.Type -eq "Folder" }
+    if ($fo.Count -gt 0) {
+        # echo folders count
+        $message = "Folders To Sort: " + $fo.Count
+        #Write-Message -message $message -color "Yellow"
+        Write-Log -message $message
+        $f = Get-FLRContent $fo
+        if ($f.count -gt 1) {
+            #echo files count
+            #Write-Message("New files found: "+ $f.Count)
+            $message = "New files found: " + $f.Count
             Write-Log -message $message
-            $files.Add($item)
-            $global:TotalFileCount++
-
+            $files.AddRange($f)
         }
-        elseif ($item.Type -eq "Folder") {
-            $res = Get-VBRUnstructuredBackupFLRItem -Session $flr -folder $item
-            # foreach item in $res, if type is file add to $files
-
-            $fi = $res | Where-Object { $_.Type -eq "File" }
-            if ($fi.Count -eq 1) {
-                # echo found file count
-                #Write-Message("New files found: " + $fi.Count)
-                $message = "New files found: " + $fi.Count
-
-                Write-Log -message $message
-                $files.Add($fi)
-            }
-            elseif ($fi.Count -gt 1) {
-                # echo files count
-                #Write-Message("New files found: " + $fi.Count)
-                $message = "New files found: " + $fi.Count
-
-                Write-Log -message $message
-
-                $files.AddRange($fi)
-            }
-            $global:TotalFileCount += $fi.Count
-
-            #if global total equal to or greater than 1 million, export to csv and flush $files variable
-            if ($global:TotalFileCount -ge 1000000 * $global:Exports) {
-                $files = Export-FLRContent $files $destination $fCount
-                $files = New-Object System.Collections.Generic.List[Object]
-            }
-
-            $fo = $res | Where-Object { $_.Type -eq "Folder" }
-            if ($fo.Count -gt 0) {
-                # echo folders count
-                $message = "Folders To Sort: " + $fo.Count
-                #Write-Message -message $message -color "Yellow"
-                Write-Log -message $message
-                $f = Get-FLRContent $fo
-                if ($f.count -gt 1) {
-                    #echo files count
-                    #Write-Message("New files found: "+ $f.Count)
-                    $message = "New files found: " + $f.Count
-                    Write-Log -message $message
-                    $files.AddRange($f)
-                }
-                elseif ($f.count -eq 1) {
-                    #echo files count
-                    #Write-Message("New files found: " + $f.Count)
-                    $message = "New files found: " + $f.Count
-                    Write-Log -message $message
-                    $files.add($f)
-
-                }
-            }
-
+        elseif ($f.count -eq 1) {
+            #echo files count
+            #Write-Message("New files found: " + $f.Count)
+            $message = "New files found: " + $f.Count
+            Write-Log -message $message
+            $files.add($f)
 
         }
     }
+
+
+        
+    
     #$files = Export-FLRContent $files $destination $fCount
     $message = "Total Files Counted: " + $global:TotalFileCount
     Write-Log -message $message
