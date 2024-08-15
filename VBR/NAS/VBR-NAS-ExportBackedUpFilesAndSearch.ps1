@@ -80,8 +80,11 @@ function Get-FLRContent($folder) {
     $files = New-Object System.Collections.Generic.List[Object]
     foreach ($item in $folder) {
         if ($item.Type -eq "File") {
+            $message = "New files found: 1"
+            Write-Log -message $message
             $files.Add($item)
             $global:TotalFileCount++
+
         }
         elseif ($item.Type -eq "Folder") {
             $res = Get-VBRUnstructuredBackupFLRItem -Session $flr -folder $item
