@@ -74,77 +74,90 @@ function Write-Log {
         Write-Host $line
     }
 }
-
+# function to update global totalfiles and finalcount{
+function Update-FileCount($count) {
+    $global:TotalFileCount += $count
+    $global:LoopCount += $count
+}
 # function to get content of folders
 function Get-FLRContent($folder) {
     $files = New-Object System.Collections.Generic.List[Object]
-
-
-    # $res = Get-VBRUnstructuredBackupFLRItem -Session $flr -folder $item
-    # foreach item in $res, if type is file add to $files
-
-    $fi = $folder | Where-Object { $_.Type -eq "File" }
-    if ($fi.Count -eq 1) {
-        # echo found file count
-        #Write-Message("New files found: " + $fi.Count)
-        $message = "New files found: " + $fi.Count
-
-        Write-Log -message $message
-        $files.Add($fi)
-    }
-    elseif ($fi.Count -gt 1) {
-        # echo files count
-        #Write-Message("New files found: " + $fi.Count)
-        $message = "New files found: " + $fi.Count
-
-        Write-Log -message $message
-
-        $files.AddRange($fi)
-    }
-    $global:TotalFileCount += $fi.Count
-
-    #if global total equal to or greater than 1 million, export to csv and flush $files variable
-    if ($global:TotalFileCount -ge 1000000 * $global:Exports) {
-        $global:FinalCount += $global:TotalFileCount
-        $global:TotalFileCount = 0
-        $files = Export-FLRContent $files $destination $fCount
-        $files = New-Object System.Collections.Generic.List[Object]
-    }
-
-    $fo = $folder | Where-Object { $_.Type -eq "Folder" }
-    if ($fo.Count -gt 0) {
-        # echo folders count
-        $message = "Folders To Sort: " + $fo.Count
-        #Write-Message -message $message -color "Yellow"
-        Write-Log -message $message
-        $f = Get-FLRContent $fo
-        if ($f.count -gt 1) {
-            #echo files count
-            #Write-Message("New files found: "+ $f.Count)
-            $message = "New files found: " + $f.Count
-            Write-Log -message $message
-            $files.AddRange($f)
-        }
-        elseif ($f.count -eq 1) {
-            #echo files count
-            #Write-Message("New files found: " + $f.Count)
-            $message = "New files found: " + $f.Count
-            Write-Log -message $message
-            $files.add($f)
+    foreach ($item in $folder) {
+        if ($item.Type -eq "File") {
+            Log-FilesFound(1)
+            $files.Add($item)
+            #$global:TotalFileCount++
+            Update-FileCount(1)
 
         }
+        elseif ($item.Type -eq "Folder") {
+            $res = Get-VBRUnstructuredBackupFLRItem -Session $flr -folder $item
+            # foreach item in $res, if type is file add to $files
+
+            $fi = $res | Where-Object { $_.Type -eq "File" }
+            if ($fi.Count -eq 1) {
+                # echo found file count
+                #Write-Message("New files found: " + $fi.Count)
+                Log-FilesFound($f.Count)
+                $files.Add($fi)
+            }
+            elseif ($fi.Count -gt 1) {
+                # echo files count
+                Log-FilesFound($f.Count)
+
+                $files.AddRange($fi)
+            }
+            Update-FileCount($fi.Count)
+
+            #if global total equal to or greater than 1 million, export to csv and flush $files variable
+            if ($global:LoopCount -ge 1000000) {
+                #$global:FinalCount += $global:TotalFileCount
+                $global:LoopCount = 0
+                $files = Export-FLRContent $files $destination $fCount
+                $files = New-Object System.Collections.Generic.List[Object]
+            }
+
+            $fo = $res | Where-Object { $_.Type -eq "Folder" }
+            if ($fo.Count -gt 0) {
+                # echo folders count
+                $message = "Folders To Sort: " + $fo.Count
+                #Write-Message -message $message -color "Yellow"
+                Write-Log -message $message
+                $f = Get-FLRContent $fo
+                if ($f.count -gt 1) {
+                    #echo files count
+                    #Write-Message("New files found: "+ $f.Count)
+                    # $message = "New files found: " + $f.Count
+                    # Write-Log -message $message
+                    Log-FilesFound($f.Count)
+                    $files.AddRange($f)
+                }
+                elseif ($f.count -eq 1) {
+                    #echo files count
+                    # $message = "New files found: " + $f.Count + "; Total Files Counted: " + $global:TotalFileCount
+                    # Write-Log -message $message
+                    Log-FilesFound($f.Count)
+                    $files.add($f)
+
+                }
+            }
+
+
+        }
     }
-
-
-        
-    
     #$files = Export-FLRContent $files $destination $fCount
-    $message = "Total Files Counted: " + $global:FinalCount
+    $message = "Total Files Counted: " + $global:TotalFileCount
     Write-Log -message $message
     return $files
 
     # }
 
+}
+
+# function to log message about new files found
+function Log-FilesFound($count) {
+    $message = "New files found: $count |  Total Files Counted: $global:TotalFileCount"
+    Write-Log -message $message
 }
 function Export-FLRContent($files, $destination, $fCount) {
     $n = $job.Name
@@ -314,8 +327,8 @@ $baseName = Get-VBRUnstructuredBackupFLRItem -Session $flr
 $message = "Starting FLR Content Search. Check progress log in : " + $destination
 Write-Message -message $message -color "Yellow"
 $global:TotalFileCount = 0
-$global:FinalCount = 0
-$global:Exports = 1
+$global:LoopCount = 0
+#$global:Exports = 1
 $filesResult = Get-FLRContent $baseName
 
 # if $filesResult count is not 0, export the remaining files to a csv file
@@ -329,11 +342,12 @@ Write-Host "Time taken to get files: $($timer.Elapsed.TotalMinutes) minutes"
 #get file count from destination by counting lines in all files
 #$filesCount = Get-ChildItem $destination -Recurse | Measure-Object -Line | Select-Object -ExpandProperty Lines
 
-Write-Host "Number of files found: $($global:FinalCount)" -ForegroundColor Green
 
 
 
-if ($global:FinalCount -eq 0) {
+Write-Host "Number of files found: $($global:TotalFileCount)" -ForegroundColor Green
+
+if ($global:TotalFileCount -eq 0) {
     Write-Host "No files found in backup"
     Close-FLRSession $flr
     Exit
@@ -403,4 +417,3 @@ while ($true) {
     }
 
 }
-
