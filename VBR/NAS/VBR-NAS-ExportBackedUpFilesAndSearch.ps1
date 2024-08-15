@@ -30,7 +30,7 @@ function Close-FLRSession($flr) {
 function Select-ItemsPerCSV {
     $validInput = $false
     while (-not $validInput) {
-        $splitOption = Read-Host "Select the number of items per CSV file (10K, 100K, 500K)(default: 100K)"
+        $splitOption = Read-Host -Prompt (Write-Host "Select the number of items per CSV file (10K, 100K, 500K)(default: 100K): " -ForegroundColor Cyan -NoNewline)
         switch ($splitOption) {
             "10K" { $fCount = 10000; $validInput = $true }
             "100K" { $fCount = 100000; $validInput = $true }
@@ -43,10 +43,10 @@ function Select-ItemsPerCSV {
 # function to log message to console with timestamp
 function Write-Message {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$message,
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [ValidateSet("Red", "Green", "Yellow", "Blue", "Cyan", "Magenta", "White")]
         [string]$color = "White"
     )
@@ -56,11 +56,11 @@ function Write-Message {
 # function to log message to log file
 function Write-Log {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$message,
 
-        [Parameter(Mandatory=$false)]
-        [string]$logFile = $destination +  "\FLR-FileSearch-Log.txt"
+        [Parameter(Mandatory = $false)]
+        [string]$logFile = $destination + "\FLR-FileSearch-Log.txt"
     )
 
     Add-Content -Path $logFile -Value "$(Get-Date) - $message"
@@ -70,40 +70,45 @@ function Write-Log {
 function Get-FLRContent($folder) {
     $files = New-Object System.Collections.Generic.List[Object]
     foreach ($item in $folder) {
-        $res = Get-VBRUnstructuredBackupFLRItem -Session $flr -folder $item
-        # foreach item in $res, if type is file add to $files
-
-        $fi = $res | Where-Object { $_.Type -eq "File" }
-        if($fi.Count -eq 1) {
-            # echo found file count
-            #Write-Message("New files found: " + $fi.Count)
-            $message = "New files found: " + $fi.Count
-            Write-Log -message $message
-            $files.Add($fi)
+        if ($item.Type -eq "File") {
+            $files.Add($item)
+            $global:TotalFileCount++
         }
-        elseif($fi.Count -gt 1) {
-            # echo files count
-            #Write-Message("New files found: " + $fi.Count)
-            $message = "New files found: " + $fi.Count
-            Write-Log -message $message
+        elseif ($item.Type -eq "Folder") {
+            $res = Get-VBRUnstructuredBackupFLRItem -Session $flr -folder $item
+            # foreach item in $res, if type is file add to $files
 
-        $files.AddRange($fi)
-        }
-        $global:TotalFileCount += $fi.Count
+            $fi = $res | Where-Object { $_.Type -eq "File" }
+            if ($fi.Count -eq 1) {
+                # echo found file count
+                #Write-Message("New files found: " + $fi.Count)
+                $message = "New files found: " + $fi.Count
+                Write-Log -message $message
+                $files.Add($fi)
+            }
+            elseif ($fi.Count -gt 1) {
+                # echo files count
+                #Write-Message("New files found: " + $fi.Count)
+                $message = "New files found: " + $fi.Count
+                Write-Log -message $message
 
-        #if global total equal to or greater than 1 million, export to csv and flush $files variable
-        if ($global:TotalFileCount -ge 1000000) {
-            $files = Export-FLRContent $files $destination $fCount
-            $files = New-Object System.Collections.Generic.List[Object]
-        }
+                $files.AddRange($fi)
+            }
+            $global:TotalFileCount += $fi.Count
 
-        $fo = $res | Where-Object { $_.Type -eq "Folder" }
-        if ($fo.Count -gt 0) {
-            # echo folders count
-            $message = "Folders To Sort: "+ $fo.Count
-           #Write-Message -message $message -color "Yellow"
-           Write-Log -message $message
-            $f = Get-FLRContent $fo
+            #if global total equal to or greater than 1 million, export to csv and flush $files variable
+            if ($global:TotalFileCount -ge 1000000) {
+                $files = Export-FLRContent $files $destination $fCount
+                $files = New-Object System.Collections.Generic.List[Object]
+            }
+
+            $fo = $res | Where-Object { $_.Type -eq "Folder" }
+            if ($fo.Count -gt 0) {
+                # echo folders count
+                $message = "Folders To Sort: " + $fo.Count
+                #Write-Message -message $message -color "Yellow"
+                Write-Log -message $message
+                $f = Get-FLRContent $fo
                 if ($f.count -gt 1) {
                     #echo files count
                     #Write-Message("New files found: "+ $f.Count)
@@ -119,38 +124,14 @@ function Get-FLRContent($folder) {
                     $files.add($f)
 
                 }
+            }
+
+
         }
-
-
-
-        # foreach ($r in $res) {
-        #     if ($r.Type -eq "File") {
-        #         $files.add($r)
-        #         # add total to global totals variable
-        #         $global:TotalFileCount++
-
-        #         #if global total equal to or greater than 1 million, export to csv and flush $files variable
-        #         if ($global:TotalFileCount -ge 1000000) {
-        #             $files = Export-FLRContent $files $destination $fCount
-        #             $files = New-Object System.Collections.Generic.List[Object]
-        #         }
-        #     }
-        #     elseif ($r.Type -eq "Folder") {
-        #         $f = Get-FLRContent $r
-        #         if ($f.count -gt 1) {
-        #             $files.AddRange($f)
-        #         }
-        #         elseif ($f.count -eq 1) {
-        #             $files.add($f)
-
-        #         }
-        #         #$files.AddRange((Get-FLRContent $r))
-        #     }        
-        # }
     }
     #$files = Export-FLRContent $files $destination $fCount
     $message = "Total Files Counted: " + $global:TotalFileCount
-    Write-Message -message $message -color "Green"
+    Write-Log -message $message
     return $files
 
     # }
@@ -185,7 +166,7 @@ function Set-DestinationDirectory {
         [string]$defaultDestination = "C:\temp\NAS-Files"
     )
 
-    $destination = Read-Host "Enter the destination directory for the files (default: $defaultDestination)"
+    $destination = Read-Host -Prompt (Write-Host "Enter the destination directory for the files (default: $defaultDestination): " -ForegroundColor Cyan -NoNewline)
     if ([string]::IsNullOrWhiteSpace($destination)) {
         $destination = $defaultDestination
     }
@@ -208,7 +189,7 @@ $jobs = Get-VBRJob | Where-Object { $_.JobType -eq "NasBackup" }
 $jobs | ForEach-Object -Begin { $index = 1 } -Process { $_ | Add-Member -NotePropertyName Index -NotePropertyValue $index -PassThru; $index++ } | Select-Object -Property Index, Name | Sort-Object -Property Index | Format-Table -AutoSize
 $validInput = $false
 while (-not $validInput) {
-    $jobInput = Read-Host "Select Job by Index"
+    $jobInput = Read-Host -Prompt (Write-Host "Select Job by Index: " -ForegroundColor Cyan -NoNewline)
 
     if ($jobInput -match '^\d+$') {
         $jobIndex = [int]$jobInput
@@ -249,7 +230,7 @@ if ($uniqueServers.Count -gt 1) {
     Write-Host "Select the server to restore files from"
     $validInput = $false
     while (-not $validInput) {
-        $serverInput = Read-Host "Select Server by Index"
+        $serverInput = Read-Host -Prompt (Write-Host "Select Server by Index: " -ForegroundColor Cyan -NoNewline)
         if ($serverInput -match '^\d+$') {
             $serverIndex = [int]$serverInput - 1
             if ($serverIndex -ge 0) {
@@ -259,7 +240,7 @@ if ($uniqueServers.Count -gt 1) {
             } 
         }
         else {
-            Write-Host "Invalid input. Please enter a valid index."
+            Write-Host "Invalid input. Please enter a valid index." -foregroundcolor Red
         }
     }
 
@@ -282,12 +263,12 @@ $restorepoints | ForEach-Object -Begin { $index = 1 } -Process { $_ | Add-Member
 # 4. Ask user to select restore point by number
 $validInput = $false
 while (-not $validInput) {
-    $restorePointIndex = Read-Host "Select Restore Point by Index"
+    $restorePointIndex = Read-Host -Prompt (Write-Host "Select Restore Point by Index: " -foregroundcolor Cyan -NoNewline)
     if ($restorePointIndex -match '^\d+$' -and $restorePointIndex -ge 1 -and $restorePointIndex -le $restorepoints.Count) {
         $validInput = $true
     }
     else {
-        Write-Host "Invalid input. Please enter a valid index."
+        Write-Host "Invalid input. Please enter a valid index." -ForegroundColor Red
     }
 }
 
@@ -378,28 +359,37 @@ else {
 # Write-Host "Script ended at: $(Get-Date)" -ForegroundColor Green
 # # Search for files
 
-# while ($true) {
-#     # Prompt for search files or exit and close FLR session
-#     $search = Read-Host "Do you want to search for a file? (Y/N)"
-#     if ($search -eq "N") {
-#         Write-Host "Closing FLR session..." -ForegroundColor Yellow
-#         Stop-VBRUnstructuredBackupFLRSession -Session $flr
+while ($true) {
+    # Prompt for search files or exit and close FLR session
+    $search = Read-Host "Do you want to search for a file? (Y/N)"
+    if ($search -eq "N") {
+        Write-Host "Exiting..." -ForegroundColor Yellow
+        #Stop-VBRUnstructuredBackupFLRSession -Session $flr
 
-#         break
-#     }
-#     if ($search -eq "Y") {
-#         $searchString = Read-Host "Enter search string"
-#         $searchResults = $files | Where-Object { $_.Name -like "*$searchString*" }
+        break
+    }
+    if ($search -eq "Y") {
+        $searchString = Read-Host -Prompt (Write-Host "Enter search string: " -NoNewline -ForegroundColor Cyan)
+        #search all csv files in destination directory for search string. Exclude files with search results
+        $files = Get-ChildItem -Path $destination -Filter "*.csv" | Where-Object { $_.Name -notlike "*searchResults*" }
+
+        $n = $job.Name
+        $date = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
+        $searchResults = @()
+        #search all csv files for search string
+        foreach ($file in $files) {
+            $searchResults += Import-Csv -Path $file.FullName | Where-Object { $_.Name -like "*$searchString*" }
+        }
         
-#         $date2 = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
+        $date2 = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
 
-#         Write-Host "Number of search results found: $($searchResults.Count)" -foregroundcolor green
-#         $searchResults | Export-Csv -Path "$destination\searchResults_$($n)_$($date2).csv" -NoTypeInformation
-#         Write-Host "Search results saved to $destination\searchResults_$($n).$($date2).csv"
-#     }
-#     else {
-#         Write-Host "Invalid input. Please enter Y or N"
-#     }
+        Write-Host "Number of search results found: $($searchResults.Count)" -foregroundcolor green
+        $searchResults | Export-Csv -Path "$destination\searchResults_$($n)_$($date2).csv" -NoTypeInformation
+        Write-Host "Search results saved to $destination\searchResults_$($n).$($date2).csv"
+    }
+    else {
+        Write-Host "Invalid input. Please enter Y or N"
+    }
 
-# }
+}
 
