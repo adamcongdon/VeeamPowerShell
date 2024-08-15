@@ -41,8 +41,17 @@ function Select-ItemsPerCSV {
     return $fCount
 }
 # function to log message to console with timestamp
-function Log-Message($message) {
-    Write-Host "$(Get-Date) - $message"
+function Log-Message {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$message,
+
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("Red", "Green", "Yellow", "Blue", "Cyan", "Magenta", "White")]
+        [string]$color = "White"
+    )
+
+    Write-Host "$(Get-Date) - $message" -ForegroundColor $color
 }
 
 # function to get content of folders
@@ -74,7 +83,8 @@ function Get-FLRContent($folder) {
         $fo = $res | Where-Object { $_.Type -eq "Folder" }
         if ($fo.Count -gt 0) {
             # echo folders count
-           Log-Message("Folders To Sort: "+ $fo.Count)
+            $message = "Folders To Sort: "+ $fo.Count
+           Log-Message -message $message -color "Yellow"
             $f = Get-FLRContent $fo
                 if ($f.count -gt 1) {
                     #echo files count
@@ -117,7 +127,8 @@ function Get-FLRContent($folder) {
         # }
     }
     #$files = Export-FLRContent $files $destination $fCount
-    Log-Message("Files Counted: " + $global:TotalFileCount)# -ForegroundColor Green
+    $message = "Total Files Counted: " + $global:TotalFileCount
+    Log-Message -message $message -color "Green"
     return $files
 
     # }
@@ -335,7 +346,7 @@ Write-Host "Number of files found: $($global:TotalFileCount)" -ForegroundColor G
 
 
 
-if ($filesResult.Count -eq 0) {
+if ($global:TotalFileCount -eq 0) {
     Write-Host "No files found in backup"
     Close-FLRSession $flr
     Exit
