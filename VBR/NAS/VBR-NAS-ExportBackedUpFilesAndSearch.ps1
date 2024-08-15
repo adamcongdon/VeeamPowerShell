@@ -97,7 +97,7 @@ function Get-FLRContent($folder) {
             $global:TotalFileCount += $fi.Count
 
             #if global total equal to or greater than 1 million, export to csv and flush $files variable
-            if ($global:TotalFileCount -ge 1000000) {
+            if ($global:TotalFileCount -ge 1000000 * $global:Exports) {
                 $files = Export-FLRContent $files $destination $fCount
                 $files = New-Object System.Collections.Generic.List[Object]
             }
@@ -305,6 +305,7 @@ $baseName = Get-VBRUnstructuredBackupFLRItem -Session $flr
 $message = "Starting FLR Content Search. Check progress log in : " + $destination
 Write-Message -message $message -color "Yellow"
 $global:TotalFileCount = 0
+$global:Exports = 1
 $filesResult = Get-FLRContent $baseName
 
 # if $filesResult count is not 0, export the remaining files to a csv file
