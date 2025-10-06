@@ -1,7 +1,21 @@
-# Get VMware tags for automated job management in VBR
+#<
+.SYNOPSIS
+Get VMware tags for automated job management in VBR
+
+.EXAMPLE
+Get-VmTags.ps1
+This example gets VMware tags for automated job management in VBR
+
+.NOTES
+Author: Adam Congdon
+
+
+>#
+
+$vCenterServer = ""
 
 # Get the VMware entities from the VC, specify tags to pull tags
-$vms = Find-VBRViEntity -Server vcsav7.home.lab -Tags
+$vms = Find-VBRViEntity -Server $vCenterServer -Tags
 
 #create a new list to add tags to
 $vmTags = @()

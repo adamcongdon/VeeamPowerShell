@@ -1,4 +1,26 @@
- # VMC log path is hardcoded for now. If logs are sent elsewhere, please adjust accordingly.
+#<
+.SYNOPSIS
+Extracts NAS information from Veeam log files for V12.
+
+.DESCRIPTION
+This script parses Veeam log files to extract relevant NAS information for V12.
+
+.PARAMETER logsPath
+The path to the Veeam log file to parse.
+.PARAMETER csvFilePath
+The path to save the first CSV output file.
+.PARAMETER csv2FilePath
+The path to save the second CSV output file.
+.EXAMPLE
+.\Get-NasInfo_for_V12up.ps1
+This example runs the script with default parameters.
+.NOTES
+Adjust the paths for logs and output files as needed.
+Author: Adam Congdon
+Date: 2024-10-01
+
+>#
+# VMC log path is hardcoded for now. If logs are sent elsewhere, please adjust accordingly.
  $logsPath = "C:\ProgramData\Veeam\Backup\Utils\VMC.log"
 
  # section identifiers
