@@ -1,0 +1,14 @@
+name: Security Scan
+on:
+  push:
+    branches: [main, master, dev]
+  pull_request:
+    branches: [main, master, dev]
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  gitleaks:
+    uses: adamcongdon/.github/.github/workflows/gitleaks-scan.yml@main
+  semgrep:
+    uses: adamcongdon/.github/.github/workflows/semgrep-scan.yml@main
